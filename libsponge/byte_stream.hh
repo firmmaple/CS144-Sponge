@@ -2,6 +2,7 @@
 #define SPONGE_LIBSPONGE_BYTE_STREAM_HH
 
 #include <string>
+#include <vector>
 
 //! \brief An in-order byte stream.
 
@@ -11,13 +12,23 @@
 class ByteStream {
   private:
     // Your code here -- add private members as necessary.
+    // Use Circular Queue to implement ByteStream
+    // Because we can't use _head ==_tail to determine whether _buf is empty or full,
+    // it is necessary to use a additional variable _size to indicate it.
+    std::vector<char> _buf;     // Internal buffer to store bytes
+    size_t _head = 0;           // _buf[_head] is the first bytes
+    size_t _tail = 0;           // _buf[_tail-1] is the last bytes
+    size_t _size = 0;           // Number of currently stored bytes
+    size_t _capacity;           // Max capacity of the _buf
+    size_t _read_cnt = 0;       // Number of totally read bytes
+    size_t _write_cnt = 0;      // Number of totally writed bytes
+    bool _input_ended = false;  // Flag indicating that the input has ended
+    bool _error = false;        //!< Flag indicating that the stream suffered an error.
 
     // Hint: This doesn't need to be a sophisticated data structure at
     // all, but if any of your tests are taking longer than a second,
     // that's a sign that you probably want to keep exploring
     // different approaches.
-
-    bool _error{};  //!< Flag indicating that the stream suffered an error.
 
   public:
     //! Construct a stream with room for `capacity` bytes.
