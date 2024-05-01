@@ -5,15 +5,26 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 //! \brief A class that assembles a series of excerpts from a byte stream (possibly out of order,
 //! possibly overlapping) into an in-order byte stream.
 class StreamReassembler {
   private:
     // Your code here -- add private members as necessary.
+    struct ByteState {
+        bool is_filled = false;
+        char byte_value = 0;
+    };
 
-    ByteStream _output;  //!< The reassembled in-order byte stream
-    size_t _capacity;    //!< The maximum number of bytes
+    ByteStream _output;                //!< The reassembled in-order byte stream
+    size_t _capacity;                  //!< The maximum number of bytes
+    std::vector<ByteState> _buf;       // _buf is a Circular Queue that is used to store
+    size_t _unassembled_bytes_cnt = 0;  // Number of unassembled bytes in _buf
+    size_t _base_index = 0;            // _base_index      is the index(sequence number) of first unassembled byte
+                                       // _base_index  - 1 is the index(sequence number) of the last unread byte
+    size_t _last_index = 0;            // _last_index  - 1 is the index(sequence number) of the last unassembled byte
+    size_t _eof_index = -1;            // _eof_index - 1 is the index of this last byte in this sequence
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
