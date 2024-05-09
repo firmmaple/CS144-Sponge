@@ -9,6 +9,35 @@
 #include <functional>
 #include <queue>
 
+class Timer {
+  private:
+    size_t _ms_elapsed_time = 0;
+    size_t _ms_timeout_threshold;
+    bool _is_running = false;
+
+  public:
+    Timer(const size_t ms_timeout_threshold) : _ms_timeout_threshold(ms_timeout_threshold) {}
+
+    void start(const size_t ms_timeout_threshold) {
+        _ms_timeout_threshold = ms_timeout_threshold;
+        _ms_elapsed_time = 0;
+        _is_running = true;
+    }
+
+    void stop() { _is_running = false; }
+
+    void restart() {
+        _ms_elapsed_time = 0;
+        _is_running = true;
+    }
+
+    void elapsed(const size_t ms_since_last_tick) { _ms_elapsed_time += ms_since_last_tick; }
+
+    bool is_running() { return _is_running; }
+
+    bool is_timeout() { return _ms_elapsed_time >= _ms_timeout_threshold; }
+};
+
 //! \brief The "sender" part of a TCP implementation.
 
 //! Accepts a ByteStream, divides it up into segments and sends the
@@ -23,14 +52,28 @@ class TCPSender {
     //! outbound queue of segments that the TCPSender wants sent
     std::queue<TCPSegment> _segments_out{};
 
+    std::queue<TCPSegment> _outstanding_segments{};
+
     //! retransmission timer for the connection
     unsigned int _initial_retransmission_timeout;
+
+    unsigned int _current_retransmission_timeout;
 
     //! outgoing stream of bytes that have not yet been sent
     ByteStream _stream;
 
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
+
+    size_t _latest_window_size{1};  // Assume the receiver's initial window is 1 as we need to send SYN flags firstly.
+
+    size_t _remaining_window_size{_latest_window_size};
+
+    Timer _timer;
+
+    unsigned int _n_consecutive_retransimissions{0};
+
+    size_t _bytes_in_flight = 0;
 
   public:
     //! Initialize a TCPSender
