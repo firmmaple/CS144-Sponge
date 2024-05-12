@@ -33,6 +33,8 @@ class Timer {
 
     void elapsed(const size_t ms_since_last_tick) { _ms_elapsed_time += ms_since_last_tick; }
 
+    size_t time_elapsed() const { return _ms_elapsed_time; }
+
     bool is_running() { return _is_running; }
 
     bool is_timeout() { return _ms_elapsed_time >= _ms_timeout_threshold; }

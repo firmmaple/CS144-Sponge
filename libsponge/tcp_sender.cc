@@ -99,7 +99,6 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         _outstanding_segments.pop();
         _bytes_in_flight -= bytes_length;
         has_new_data_received = true;
-        cout << "remove!" << endl;
     }
 
     if (has_new_data_received) {
@@ -110,7 +109,6 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
 
     if (_outstanding_segments.empty()) {
         _timer.stop();
-        cout << "Stop!" << endl;
     }
 
     if (abs_ackno + window_size > _next_seqno) {

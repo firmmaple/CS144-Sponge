@@ -21,6 +21,12 @@ class TCPConnection {
     //! in case the remote TCPConnection doesn't know we've received its whole stream?
     bool _linger_after_streams_finish{true};
 
+    bool _is_rst_received_or_sent = false;
+
+    Timer _timer;
+
+    void _send_all_segments();
+
   public:
     //! \name "Input" interface for the writer
     //!@{
@@ -81,7 +87,7 @@ class TCPConnection {
     //!@}
 
     //! Construct a new connection from a configuration
-    explicit TCPConnection(const TCPConfig &cfg) : _cfg{cfg} {}
+    explicit TCPConnection(const TCPConfig &cfg) : _cfg{cfg}, _timer(0) {}
 
     //! \name construction and destruction
     //! moving is allowed; copying is disallowed; default construction not possible
