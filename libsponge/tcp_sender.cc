@@ -27,28 +27,34 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
     , _stream(capacity)
     , _timer(retx_timeout) {}
 
-uint64_t TCPSender::bytes_in_flight() const { return _bytes_in_flight; }
+uint64_t TCPSender::bytes_in_flight() const { return _next_seqno - _base_seqno; }
 
 void TCPSender::fill_window() {
     size_t nread;
     uint64_t bytes_sent;  // count is in "sequence space" i.e. SYN and FIN each count for one byte
     string data;
+    size_t end_seqno = _base_seqno + _window_size;
 
-    while (_remaining_window_size > 0) {
+    if (_window_size == 0) {
+        end_seqno += 1;
+        // end_seqno = _next_seqno + 1;
+    }
+
+    while (_next_seqno < end_seqno) {
         TCPSegment seg;
-        data = _stream.read(min(_remaining_window_size, TCPConfig::MAX_PAYLOAD_SIZE));
+        size_t remaining_window_size = end_seqno - _next_seqno;
+        data = _stream.read(min(remaining_window_size, TCPConfig::MAX_PAYLOAD_SIZE));
         nread = data.size();
 
         if (_next_seqno == 0) {
             seg.header().syn = true;
-            // nread += 1;
         } else if (_stream.eof() && _next_seqno < _stream.bytes_written() + 2) {
             // Don't send FIN if this would make the segment exceed the receiver's window
             // But I think such implementation is wrong as window size means the real bytes receiver can accept.
             // Though flags like SYN or FlAG consume one sequence space, they are not real bytes and
             // do not consume stream index.
             // Hence I think it is safe to send FLAG when receiver's window is full.
-            if (nread < _remaining_window_size)
+            if (nread < remaining_window_size)
                 seg.header().fin = true;
         }
 
@@ -68,10 +74,6 @@ void TCPSender::fill_window() {
         _outstanding_segments.push(seg);
 
         _next_seqno += bytes_sent;
-        _bytes_in_flight += bytes_sent;
-        _remaining_window_size -= bytes_sent;  // Count Flags like SYN consuming one space in window size
-                                               // But I do not think they need to consume.
-                                               // The correct implementation should be _remaining_window_size -= nread;
     }
 }
 
@@ -97,7 +99,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
             break;
         }
         _outstanding_segments.pop();
-        _bytes_in_flight -= bytes_length;
+        _base_seqno += bytes_length;
         has_new_data_received = true;
     }
 
@@ -112,13 +114,10 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     }
 
     if (abs_ackno + window_size > _next_seqno) {
-        _latest_window_size = window_size;
-        _remaining_window_size = abs_ackno + window_size - _next_seqno;
+        _window_size = window_size;
         fill_window();
     } else if (window_size == 0) {
-        // When filling window, treat a '0' window size as equal to '1' but don't back off RTO
-        _latest_window_size = 0;     // Since _latest_window_size=0, ROT will not be back off when timer goes off.
-        _remaining_window_size = 1;  // Send a single bytes in fill_window method
+        _window_size = 0;
         fill_window();
     }
 }
@@ -133,7 +132,7 @@ void TCPSender::tick(const size_t ms_since_last_tick) {
         TCPSegment retransmitted_seg = _outstanding_segments.front();
         _segments_out.push(retransmitted_seg);
 
-        if (_latest_window_size) {
+        if (_window_size) {
             _n_consecutive_retransimissions++;
             _current_retransmission_timeout *= 2;
         }

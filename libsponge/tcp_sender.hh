@@ -67,15 +67,16 @@ class TCPSender {
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
 
-    size_t _latest_window_size{1};  // Assume the receiver's initial window is 1 as we need to send SYN flags firstly.
+    // size_t _latest_window_size{1};  // Assume the receiver's initial window is 1 as we need to send SYN flags firstly.
+    size_t _base_seqno{0};
 
-    size_t _remaining_window_size{_latest_window_size};
+    size_t _window_size{1};
+
+    // size_t _remaining_window_size{_latest_window_size};
 
     Timer _timer;
 
     unsigned int _n_consecutive_retransimissions{0};
-
-    size_t _bytes_in_flight = 0;
 
   public:
     //! Initialize a TCPSender
