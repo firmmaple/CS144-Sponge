@@ -30,7 +30,9 @@ class TCPConnection {
 
     bool _is_server{true};  // indicates that TCPConnection act as server
 
-    void _send_all_segments();
+    void _send_rst_segment();  // Send a segment that contain RST flag
+
+    void _send_all_segments();  // Send all available segment
 
   public:
     //! \name "Input" interface for the writer

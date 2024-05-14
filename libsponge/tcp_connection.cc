@@ -131,6 +131,25 @@ size_t TCPConnection::write(const string &data) {
     return nwritten;
 }
 
+void TCPConnection::_send_rst_segment() {
+    TCPSegment rst_segment;
+
+    _sender.send_empty_segment();
+    rst_segment = _sender.segments_out().front();
+    _sender.segments_out().pop();
+
+    if (!_segments_out.empty()) {
+        // 因为发送rst报文的优先级是最高的，所以需要丢弃其他未发送的segments，
+        // 然后直接发送rst报文，另外需要重新设置rst报文的seqno
+        rst_segment.header().seqno = _segments_out.front().header().seqno;
+        _segments_out = std::queue<TCPSegment>();
+    } else {
+    }
+
+    rst_segment.header().rst = true;
+    _segments_out.push(rst_segment);
+}
+
 void TCPConnection::_send_all_segments() {
     // cerr << "[conn] send_all_segments, lenth: " << _sender.segments_out().size() << endl;
     TCPSegment seg;
@@ -167,17 +186,7 @@ void TCPConnection::tick(const size_t ms_since_last_tick) {
     _timer.elapsed(ms_since_last_tick);
     if (_sender.consecutive_retransmissions() > _cfg.MAX_RETX_ATTEMPTS) {
         // cerr << "[conn] send rst!" << endl;
-        TCPSegment rst_segment;
-        WrappingInt32 seqno = _sender.next_seqno();
-
-        if (!_segments_out.empty()) {
-            seqno = _segments_out.front().header().seqno;
-            _segments_out = std::queue<TCPSegment>();
-        }
-        rst_segment.header().seqno = seqno;
-        rst_segment.header().rst = true;
-        rst_segment.payload() = Buffer("");
-        _segments_out.push(rst_segment);
+        _send_rst_segment();
         _is_rst_received_or_sent = true;
         _sender.stream_in().set_error();
         _receiver.stream_out().set_error();
@@ -205,11 +214,7 @@ TCPConnection::~TCPConnection() {
             cerr << "Warning: Unclean shutdown of TCPConnection\n";
 
             // Your code here: need to send a RST segment to the peer
-            TCPSegment rst_segment;
-            rst_segment.header().seqno = _sender.next_seqno();
-            rst_segment.header().rst = true;
-            rst_segment.payload() = Buffer("");
-            _segments_out.push(rst_segment);
+            _send_rst_segment();
         }
     } catch (const exception &e) {
         std::cerr << "Exception destructing TCP FSM: " << e.what() << std::endl;
