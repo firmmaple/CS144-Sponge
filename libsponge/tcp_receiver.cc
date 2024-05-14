@@ -17,13 +17,22 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
     Buffer payload = seg.payload();
     uint64_t abs_seqno;
 
-    if (_isn.has_value()) {  // Check if SYN has alreadly been received.
-        abs_seqno = unwrap(header.seqno, _isn.value(), _checkpoint);
-    } else if (header.syn) {
+    if (header.syn) {
+        if (_isn.has_value()) {  // 判断这是否为被重传的，并且被已经被我们接收的TCP握手报文
+            // 具体来说，在我们（作为server）已经收到client发来的第一次握手的报文后，client又重发了第一次握手报文。
+            // 具体情况为，client向server发出第一次握手，server成功接收，并向client发出第二次握手的报文，
+            // 可是随后的情况没有那么顺利，client没有收到第二次握手报文，于是重传第一次握手的TCP报文，也就是我们现在收到的这个segment。
+            // 所以我们不需要做任何事情，直接返回就好（反正第二次握手对应的报文会在tick被调用时超时重传的，不用我们主动发送）
+            return;
+        }
         // This segment is the initial one with SYN flag set, indicting the start of a TCP connection.
         // The sequence number of the first-arriving segment that has the SYN flag set is the initial sequence number.
-        _isn = header.seqno;
-        abs_seqno = 1;  // The absolute sequence number is 1 for the first byte of payload.
+        _isn = header.seqno;  // 其实我们记录完_isn后可以直接return的，因为一般情况下syn报文不会含有数据，
+                              // 但是继续执行也没有关系，我们的代码可以处理这种逻辑，
+                              // 因为payload的size=0， 后面执行的push_substring不会插入实质性的数据
+        abs_seqno = 1;              // The absolute sequence number is 1 for the first byte of payload.
+    } else if (_isn.has_value()) {  // Check if SYN has alreadly been received.
+        abs_seqno = unwrap(header.seqno, _isn.value(), _checkpoint);
     } else {
         // If no SYN has been received yet, ignore the segment and return immediately.
         // Continue waiting for a segment with SYN to establish the connection.

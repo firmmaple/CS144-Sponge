@@ -6,6 +6,8 @@
 #include "tcp_sender.hh"
 #include "tcp_state.hh"
 
+#include <iostream>
+
 //! \brief A complete endpoint of a TCP connection
 class TCPConnection {
   private:
@@ -21,9 +23,12 @@ class TCPConnection {
     //! in case the remote TCPConnection doesn't know we've received its whole stream?
     bool _linger_after_streams_finish{true};
 
-    bool _is_rst_received_or_sent = false;
+    bool _is_rst_received_or_sent =
+        false;  // indicates that TCPConnection has already received RST from peer or sent RST to peer.
 
-    Timer _timer;
+    Timer _timer;  // Simply used to record the elapsed time since last segment received.
+
+    bool _is_server{true};  // indicates that TCPConnection act as server
 
     void _send_all_segments();
 
@@ -87,7 +92,9 @@ class TCPConnection {
     //!@}
 
     //! Construct a new connection from a configuration
-    explicit TCPConnection(const TCPConfig &cfg) : _cfg{cfg}, _timer(0) {}
+    explicit TCPConnection(const TCPConfig &cfg) : _cfg{cfg}, _timer(0) {
+        // std::cerr<<"[conn] TCPConnection Construct"<<std::endl;
+    }
 
     //! \name construction and destruction
     //! moving is allowed; copying is disallowed; default construction not possible

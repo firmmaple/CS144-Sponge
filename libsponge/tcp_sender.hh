@@ -6,7 +6,6 @@
 #include "tcp_segment.hh"
 #include "wrapping_integers.hh"
 
-#include <functional>
 #include <queue>
 
 class Timer {
@@ -64,15 +63,24 @@ class TCPSender {
     //! outgoing stream of bytes that have not yet been sent
     ByteStream _stream;
 
+    /*
+     * [0, _base_seqno)                             - Already acknowledged bytes
+     * [_base_seqno, _next_seqno)                   - Sent, not yet acknowledged bytes
+     * [_next_seqno, _base_seqno + _window_size]    - Bytes to be sent.
+     * [_base_seqno + _window_size, )               - Bytes illegal to be sent.
+     */
+
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
 
-    // size_t _latest_window_size{1};  // Assume the receiver's initial window is 1 as we need to send SYN flags firstly.
+    // the absolute sequence number for the first byte no yet acknowledged
     size_t _base_seqno{0};
 
+    // Assume the receiver's initial window is 1 as we need to send SYN flags firstly.
     size_t _window_size{1};
-
-    // size_t _remaining_window_size{_latest_window_size};
+    // 那么_window_size可不可以是0呢，反正在fill_window方法里，如果窗口大小是0 ，也会把其当作1处理？
+    // 不可以，因为对于需要将窗口当作1来处理的情况，我们并不会使用指数回退并增加重传计数器
+    // 但是对于一开始的SYN报文，我们是需要指数回退的，而是否需要指数回退的逻辑我们是通过判断窗口大小是否为0实现的
 
     Timer _timer;
 
