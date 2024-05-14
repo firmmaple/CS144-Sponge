@@ -1,4 +1,4 @@
-#include "socket.hh"
+#include "tcp_sponge_socket.hh"
 #include "util.hh"
 
 #include <cstdlib>
@@ -17,7 +17,7 @@ void get_URL(const string &host, const string &path) {
     request += "Host: " + host + "\r\n";
     request += "Connection: close\r\n\r\n";
 
-    TCPSocket conn_sock;
+    CS144TCPSocket conn_sock;
     conn_sock.connect(Address(host, "http"));
     conn_sock.write(request);
     conn_sock.shutdown(SHUT_WR);
@@ -30,8 +30,7 @@ void get_URL(const string &host, const string &path) {
         response += conn_sock.read();
     }
     cout << response;
-    conn_sock.close();
-
+    conn_sock.wait_until_closed();
     cerr << "Function called: get_URL(" << host << ", " << path << ").\n";
 }
 
