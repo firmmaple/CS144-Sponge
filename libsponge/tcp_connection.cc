@@ -54,7 +54,7 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
     if (!_receiver.stream_out().eof()) {
         // 如果peer发送fin报文后，我们的ack报文对方没有收到，那么peer会再次发送fin报文
         // 这时候我们没有必要再recerive了
-        // 但感觉也没有必要用if判断一下，我们的segment_received应该足够rubost，能够处理这种情况
+        // 但感觉也没有必要用if判断一下，我们的segment_received应该足够robust，能够处理这种情况
         // 不过我还没有测试过就是了
         _receiver.segment_received(seg);
     }
@@ -154,14 +154,12 @@ void TCPConnection::_send_all_segments() {
     // cerr << "[conn] send_all_segments, lenth: " << _sender.segments_out().size() << endl;
     TCPSegment seg;
 
-    // 如果receiver的ackno为空，说明我们作为clinet，发送的TCP握手第一个报文没有被server确认
-    // 随后定时器触发，tick方法调用_send_all_segments，然后在此处的if语句内重传TCP握手的第一个报文
     // 发送或重传TCP握手的第一个报文
     if (!_sender.segments_out().empty() && !_receiver.ackno().has_value()) {
         // cerr << "[conn] send_all_segments resend SYN start" << endl;
         seg = _sender.segments_out().front();
         _sender.segments_out().pop();
-        _segments_out.push(seg);
+        _segments_out.push(std::move(seg));
         // cerr << "[conn] send_all_segments resend SYN end" << endl;
         return;
     }
@@ -169,7 +167,7 @@ void TCPConnection::_send_all_segments() {
     while (!_sender.segments_out().empty()) {  // Send all segments(new segments or outstanding segments)
         // cerr << "[conn] send_all_segments in while loop start" << endl;
         seg = _sender.segments_out().front();
-        seg.header().ack = true;
+        seg.header().ack = true;  // 除TCP握手的第一个报文和RST外，所有其他报文的ACk都为true
         seg.header().ackno = _receiver.ackno().value();
         seg.header().win = _receiver.window_size();
         _sender.segments_out().pop();
