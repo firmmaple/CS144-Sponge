@@ -2,11 +2,15 @@
 #define SPONGE_LIBSPONGE_NETWORK_INTERFACE_HH
 
 #include "ethernet_frame.hh"
+#include "ethernet_header.hh"
+#include "ipv4_datagram.hh"
 #include "tcp_over_ip.hh"
 #include "tun.hh"
 
+#include <list>
 #include <optional>
 #include <queue>
+#include <unordered_map>
 
 //! \brief A "network interface" that connects IP (the internet layer, or network layer)
 //! with Ethernet (the network access layer, or link layer).
@@ -31,6 +35,22 @@
 //! and learns or replies as necessary.
 class NetworkInterface {
   private:
+    struct PendingDatagram {
+        size_t ms_arrived_time;
+        InternetDatagram dgram;
+
+        PendingDatagram(const size_t time, const InternetDatagram &datagram)
+            : ms_arrived_time(time), dgram(std::move(datagram)) {}
+    };
+
+    struct ArpCacheEntry {
+        size_t ms_arrived_time;
+        EthernetAddress eaddress;
+        ArpCacheEntry() = default;
+        ArpCacheEntry(const size_t time, const EthernetAddress &ethernet_address)
+            : ms_arrived_time(time), eaddress(std::move(ethernet_address)) {}
+    };
+
     //! Ethernet (known as hardware, network-access-layer, or link-layer) address of the interface
     EthernetAddress _ethernet_address;
 
@@ -39,6 +59,18 @@ class NetworkInterface {
 
     //! outbound queue of Ethernet frames that the NetworkInterface wants sent
     std::queue<EthernetFrame> _frames_out{};
+
+    size_t _ms_current_time{0};
+
+    static constexpr size_t _ms_arp_reply_timeout{5000};
+
+    static constexpr size_t _ms_cache_lifetime{30000};
+
+    // Store the mappings between IP Address and Ethernet Address.
+    std::unordered_map<uint32_t, ArpCacheEntry> _arp_cache_table{};
+
+    // Store the pending datagrams that waiting for arp replys.
+    std::unordered_map<uint32_t, std::list<PendingDatagram>> _pending_datagrams{};
 
   public:
     //! \brief Construct a network interface with given Ethernet (network-access-layer) and IP (internet-layer) addresses
